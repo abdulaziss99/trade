@@ -216,7 +216,7 @@
     <button data-tab="fvg">FVG</button>
     <button data-tab="news">News</button>
     <button data-tab="ai">AI Analysis</button>
-    <button data-tab="risk">Risk Calculator</button>
+    <button data-tab="about">About</button>
   </nav>
   <button class="theme-toggle" id="themeToggle">🌙 <span id="themeLabel">Dark</span></button>
   <div class="conn">● CONNECTED</div>
@@ -344,7 +344,7 @@
   </div>
 </div>
 
-<div class="bottom-grid">
+<div class="bottom-grid" id="dashboardBottom">
   <div class="card">
     <h3>🔑 Legend</h3>
     <div class="legend-grid">
@@ -356,39 +356,42 @@
       <div class="li">💧 Liquidity</div>
     </div>
   </div>
+</div>
 
-  <div class="card entry-list">
-    <h3>✅ Entry Rules (Buy)</h3>
-    <div class="ei"><span style="color:var(--green)">✔</span>Trend Bullish (H1+H4)</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>Price Retrace to Bullish OB</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>FVG Filled</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>Liquidity Sweep (EQ Low)</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>RSI Rebound Above 40</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>Volume Increasing</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>No High Impact News Nearby</div>
-    <div class="ei"><span style="color:var(--green)">✔</span>Min R:R 1:2</div>
-  </div>
-
-  <div class="card entry-list">
-    <h3>🔻 Entry Rules (Sell)</h3>
-    <div class="ei"><span style="color:var(--red)">✔</span>Trend Bearish (H1+H4)</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>Price Retrace to Bearish OB</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>FVG Filled</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>Liquidity Sweep (EQ High)</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>RSI Rejection Below 60</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>Volume Increasing</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>No High Impact News Nearby</div>
-    <div class="ei"><span style="color:var(--red)">✔</span>Min R:R 1:2</div>
-  </div>
-
-  <div class="card">
-    <h3>📖 How To Use</h3>
-    <div class="ei">1. Check Trend &amp; AI Score</div>
-    <div class="ei">2. Wait for Price Retrace to OB</div>
-    <div class="ei">3. Wait for Liquidity Sweep</div>
-    <div class="ei">4. Confirm with FVG + RSI + Volume</div>
-    <div class="ei">5. Set SL &amp; TP with Risk Calculator</div>
-    <div class="ei">6. Execute with Discipline</div>
+<!-- ABOUT PAGE -->
+<div id="aboutPage" style="display:none; max-width:1600px; margin:0 auto; padding:14px;">
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+    <div class="card entry-list">
+      <h3>✅ Entry Rules (Buy)</h3>
+      <div class="ei"><span style="color:var(--green)">✔</span>Trend Bullish (H1+H4)</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>Price Retrace to Bullish OB</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>FVG Filled</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>Liquidity Sweep (EQ Low)</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>RSI Rebound Above 40</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>Volume Increasing</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>No High Impact News Nearby</div>
+      <div class="ei"><span style="color:var(--green)">✔</span>Min R:R 1:2</div>
+    </div>
+    <div class="card entry-list">
+      <h3>🔻 Entry Rules (Sell)</h3>
+      <div class="ei"><span style="color:var(--red)">✔</span>Trend Bearish (H1+H4)</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>Price Retrace to Bearish OB</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>FVG Filled</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>Liquidity Sweep (EQ High)</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>RSI Rejection Below 60</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>Volume Increasing</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>No High Impact News Nearby</div>
+      <div class="ei"><span style="color:var(--red)">✔</span>Min R:R 1:2</div>
+    </div>
+    <div class="card">
+      <h3>📖 How To Use</h3>
+      <div class="ei">1. Check Trend &amp; AI Score</div>
+      <div class="ei">2. Wait for Price Retrace to OB</div>
+      <div class="ei">3. Wait for Liquidity Sweep</div>
+      <div class="ei">4. Confirm with FVG + RSI + Volume</div>
+      <div class="ei">5. Set SL &amp; TP with Risk Calculator</div>
+      <div class="ei">6. Execute with Discipline</div>
+    </div>
   </div>
 </div>
 
@@ -402,6 +405,11 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(e.target.tagName==='BUTTON'){
     document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
     e.target.classList.add('active');
+    const tab = e.target.dataset.tab;
+    const isAbout = tab === 'about';
+    document.querySelector('.layout').style.display = isAbout ? 'none' : '';
+    document.getElementById('dashboardBottom').style.display = isAbout ? 'none' : '';
+    document.getElementById('aboutPage').style.display = isAbout ? 'block' : 'none';
   }
 });
 
