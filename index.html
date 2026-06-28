@@ -20,13 +20,33 @@
     --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
     --sans: 'Inter', -apple-system, sans-serif;
   }
+  html[data-theme="light"]{
+    --bg:#f4f6fa;
+    --panel:#ffffff;
+    --panel2:#eef1f6;
+    --line:#dde3ec;
+    --text:#1a2332;
+    --muted:#6b7484;
+  }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--bg);
     color:var(--text);
     font-family:var(--sans);
     -webkit-font-smoothing:antialiased;
+    transition: background .25s ease, color .25s ease;
   }
+  .card, .topbar, .symbol-pill, .rec-box, #tv_chart_container{
+    transition: background .25s ease, border-color .25s ease;
+  }
+  .theme-toggle{
+    display:flex; align-items:center; gap:6px;
+    background:var(--panel2); border:1px solid var(--line);
+    color:var(--muted); font-size:12px; font-weight:600;
+    padding:6px 12px; border-radius:8px; cursor:pointer;
+    font-family:var(--sans);
+  }
+  .theme-toggle:hover{color:var(--text);}
   .topbar{
     display:flex; align-items:center; gap:12px;
     padding:12px 16px;
@@ -184,6 +204,7 @@
     <button data-tab="ai">AI Analysis</button>
     <button data-tab="risk">Risk Calculator</button>
   </nav>
+  <button class="theme-toggle" id="themeToggle">🌙 <span id="themeLabel">Dark</span></button>
   <div class="conn">● CONNECTED</div>
 </div>
 
@@ -390,9 +411,13 @@ setInterval(()=>{
 
 // ===================================================================
 // TRADINGVIEW WIDGET — chart utama (LIVE, real, langsung dari TradingView)
-// Tidak perlu data manual; widget ini connect sendiri ke server TradingView.
+// Studies (MA + RSI) dikunci di sini supaya konsisten tiap reload —
+// bukan dari akun pribadi (widget gratis nggak bisa login akun TradingView),
+// tapi minimal nggak perlu set ulang manual tiap buka dashboard.
 // ===================================================================
-(function loadTradingView(){
+function loadTradingView(theme){
+  const container = document.querySelector('#tv_chart_container .tradingview-widget-container__widget');
+  container.innerHTML = ''; // bersihkan widget lama sebelum render ulang
   const script = document.createElement('script');
   script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
   script.async = true;
@@ -401,19 +426,43 @@ setInterval(()=>{
     "symbol": "OANDA:XAUUSD",
     "interval": "15",
     "timezone": "Asia/Jakarta",
-    "theme": "dark",
+    "theme": theme,
     "style": "1",
     "locale": "id",
-    "backgroundColor": "rgba(17, 22, 31, 1)",
-    "gridColor": "rgba(29, 37, 49, 0.5)",
+    "backgroundColor": theme === "dark" ? "rgba(17, 22, 31, 1)" : "rgba(255, 255, 255, 1)",
+    "gridColor": theme === "dark" ? "rgba(29, 37, 49, 0.5)" : "rgba(221, 227, 236, 0.6)",
     "hide_top_toolbar": false,
     "hide_legend": false,
     "allow_symbol_change": true,
     "studies": ["MASimple@tv-basicstudies","RSI@tv-basicstudies"],
     "support_host": "https://www.tradingview.com"
   });
-  document.querySelector('#tv_chart_container .tradingview-widget-container__widget').appendChild(script);
-})();
+  container.appendChild(script);
+}
+
+// ===================================================================
+// TOGGLE DARK / LIGHT MODE — preferensi disimpan di localStorage,
+// jadi tetap ingat tema terakhir kamu pilih tiap buka dashboard lagi.
+// ===================================================================
+const root = document.documentElement;
+const themeToggleBtn = document.getElementById('themeToggle');
+const themeLabel = document.getElementById('themeLabel');
+
+function applyTheme(theme){
+  root.setAttribute('data-theme', theme);
+  themeLabel.textContent = theme === 'dark' ? 'Dark' : 'Light';
+  themeToggleBtn.firstChild.textContent = theme === 'dark' ? '🌙 ' : '☀️ ';
+  localStorage.setItem('ags_theme', theme);
+  loadTradingView(theme); // chart TradingView ikut menyesuaikan tema
+}
+
+themeToggleBtn.addEventListener('click', ()=>{
+  const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// load tema tersimpan, default dark kalau belum pernah diset
+applyTheme(localStorage.getItem('ags_theme') || 'dark');
 
 // ===================================================================
 // CATATAN UNTUK NANTI — sambungin panel AGS (kiri & kanan) ke data real
