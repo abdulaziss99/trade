@@ -280,11 +280,14 @@
           <div class="chart-title">XAUUSD · M15 <span class="tv-badge">LIVE · TradingView</span></div>
           <div class="chart-sub">Gold Spot / U.S. Dollar — chart real-time, candlestick asli dari TradingView</div>
         </div>
-        <div class="sessions">
-          <span><i class="sd" style="background:#3b82f6"></i>ASIA</span>
-          <span><i class="sd" style="background:#22c55e"></i>LONDON</span>
-          <span><i class="sd" style="background:#ef4444"></i>NEW YORK</span>
-        </div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);">LIVE SESSION TRACKER</div>
+      </div>
+
+      <!-- SESSION INDICATOR -->
+      <div id="sessionIndicator" style="margin-bottom:10px;">
+        <div id="sesBar" style="display:flex;border-radius:6px;overflow:hidden;height:22px;margin-bottom:8px;border:1px solid var(--line);"></div>
+        <div id="clockRow" style="display:flex;gap:8px;margin-bottom:6px;"></div>
+        <div id="utcRow" style="font-size:10px;color:var(--muted);text-align:right;font-family:var(--mono);"></div>
       </div>
 
       <div id="tv_chart_container" style="flex:1;">
@@ -492,6 +495,66 @@ themeToggleBtn.addEventListener('click', ()=>{
 
 // load tema tersimpan, default dark
 applyTheme(getSavedTheme() || 'dark');
+
+// ===================================================================
+// LIVE SESSION INDICATOR
+// ===================================================================
+const SESSIONS = [
+  { name:'SYDNEY',   color:'#a855f7', utcStart:21, utcEnd:6  },
+  { name:'TOKYO',    color:'#3b82f6', utcStart:0,  utcEnd:9  },
+  { name:'LONDON',   color:'#22c55e', utcStart:7,  utcEnd:16 },
+  { name:'NEW YORK', color:'#f0b429', utcStart:12, utcEnd:21 },
+];
+function sessIsActive(s,hUTC){if(s.utcEnd>s.utcStart)return hUTC>=s.utcStart&&hUTC<s.utcEnd;return hUTC>=s.utcStart||hUTC<s.utcEnd;}
+function sessPct(s,minUTC){const total=((s.utcEnd-s.utcStart+24)%24)*60;const elapsed=(minUTC-s.utcStart*60+1440)%1440;return Math.min(100,Math.max(0,(elapsed/total)*100));}
+function toLocalStr(utcH){const d=new Date();d.setUTCHours(utcH,0,0,0);return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});}
+function buildSessBar(){
+  const bar=document.getElementById('sesBar');if(!bar)return;bar.innerHTML='';
+  for(let i=0;i<48;i++){
+    const hUTC=Math.floor(i*0.5);
+    const active=SESSIONS.filter(s=>sessIsActive(s,hUTC));
+    const div=document.createElement('div');
+    div.style.cssText='flex:1;height:100%;';
+    if(active.length===1)div.style.background=active[0].color+'55';
+    else if(active.length>1)div.style.background=`linear-gradient(90deg,${active[0].color}55 50%,${active[1].color}55 50%)`;
+    else div.style.background='var(--panel2)';
+    div.dataset.slot=i;bar.appendChild(div);
+  }
+}
+function updateSess(){
+  const bar=document.getElementById('sesBar');
+  const row=document.getElementById('clockRow');
+  const utcRow=document.getElementById('utcRow');
+  if(!bar||!row||!utcRow)return;
+  const now=new Date();
+  const hUTC=now.getUTCHours(),mUTC=now.getUTCMinutes(),sUTC=now.getUTCSeconds();
+  const minUTC=hUTC*60+mUTC,curSlot=Math.floor(minUTC/30);
+  Array.from(bar.children).forEach((seg,i)=>{
+    seg.style.opacity=i<curSlot?'0.3':'1';
+    seg.style.outline=i===curSlot?'2px solid var(--text)':'none';
+    seg.style.outlineOffset='-1px';seg.style.position='relative';seg.style.zIndex=i===curSlot?'1':'0';
+  });
+  row.innerHTML='';
+  SESSIONS.forEach(s=>{
+    const act=sessIsActive(s,hUTC);
+    const p=act?sessPct(s,minUTC).toFixed(1):0;
+    const card=document.createElement('div');
+    card.style.cssText=`flex:1;border-radius:8px;padding:6px 8px;border:1px solid ${act?s.color:'var(--line)'};background:var(--panel);`;
+    card.innerHTML=`
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:${s.color};display:inline-block;${act?'box-shadow:0 0 5px '+s.color:''}"></span>
+        <span style="font-size:9px;font-weight:700;color:${act?s.color:'var(--muted)'};font-family:var(--mono);">${s.name}</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);font-family:var(--mono);">${toLocalStr(s.utcStart)}–${toLocalStr(s.utcEnd)}</div>
+      <div style="font-size:9px;font-weight:700;color:${act?s.color:'var(--muted)'};">${act?'OPEN':'CLOSED'}</div>
+      ${act?`<div style="height:3px;border-radius:2px;background:var(--line);margin-top:4px;"><div style="width:${p}%;height:100%;border-radius:2px;background:${s.color};"></div></div>`:''}
+    `;
+    row.appendChild(card);
+  });
+  const pad=n=>String(n).padStart(2,'0');
+  utcRow.textContent=`UTC ${pad(hUTC)}:${pad(mUTC)}:${pad(sUTC)}`;
+}
+buildSessBar();updateSess();setInterval(updateSess,1000);
 </script>
 
 </body>
