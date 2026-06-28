@@ -307,26 +307,26 @@
   <div class="col">
     <div class="card">
       <h3>🤖 AI Analysis</h3>
-      <div class="check-item"><span>Trend Direction</span><span class="ico">✔ BULLISH</span></div>
-      <div class="check-item"><span>Price Above EMA50</span><span class="ico">✔ YES</span></div>
-      <div class="check-item"><span>Pullback to Order Block</span><span class="ico">✔ YES</span></div>
-      <div class="check-item"><span>FVG Filled</span><span class="ico">✔ YES</span></div>
-      <div class="check-item"><span>Liquidity Sweep</span><span class="ico">✔ YES</span></div>
-      <div class="check-item"><span>Volume Confirmation</span><span class="ico">✔ YES</span></div>
-      <div class="check-item"><span>RSI Condition</span><span class="ico" style="color:var(--gold)">⦿ NEUTRAL</span></div>
-      <div class="check-item"><span>News Filter</span><span class="ico off">✕ HIGH IMPACT</span></div>
+      <div class="check-item"><span>Trend Direction</span><span class="ico" id="ai-trend">— LOADING</span></div>
+      <div class="check-item"><span>Price Above EMA50</span><span class="ico" id="ai-ema">— LOADING</span></div>
+      <div class="check-item"><span>Pullback to Order Block</span><span class="ico" id="ai-ob">⦿ MOCK</span></div>
+      <div class="check-item"><span>FVG Filled</span><span class="ico" id="ai-fvg">⦿ MOCK</span></div>
+      <div class="check-item"><span>Liquidity Sweep</span><span class="ico" id="ai-liq">⦿ MOCK</span></div>
+      <div class="check-item"><span>Volume Confirmation</span><span class="ico" id="ai-vol">— LOADING</span></div>
+      <div class="check-item"><span>RSI Condition</span><span class="ico" id="ai-rsi">— LOADING</span></div>
+      <div class="check-item"><span>News Filter</span><span class="ico off" id="ai-news">✕ HIGH IMPACT</span></div>
 
       <div class="ai-score-big">
         <div style="font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.5px;">CONFIDENCE LEVEL</div>
-        <div class="num">82%</div>
-        <div class="barwrap"><div class="barfill" style="width:82%"></div></div>
-        <div style="font-size:11.5px; color:var(--green); margin-top:4px; font-weight:600;">High Probability Setup</div>
+        <div class="num" id="ai-score-num">—%</div>
+        <div class="barwrap"><div class="barfill" id="ai-score-bar" style="width:0%"></div></div>
+        <div style="font-size:11.5px; margin-top:4px; font-weight:600;" id="ai-score-label">Calculating...</div>
       </div>
 
-      <div class="rec-box">
+      <div class="rec-box" id="ai-rec-box">
         <div class="tag">RECOMMENDATION</div>
-        <div class="word">WAIT</div>
-        <div class="sub">Wait for Bullish Confirmation Candle<br>Before Entering BUY</div>
+        <div class="word" id="ai-rec-word">—</div>
+        <div class="sub" id="ai-rec-sub">Fetching data...</div>
       </div>
     </div>
 
@@ -646,7 +646,126 @@ async function fetchAllTrends(){
 }
 
 fetchAllTrends();
-setInterval(fetchAllTrends, 5*60*1000); // refresh tiap 5 menit
+setInterval(fetchAllTrends, 5*60*1000);
+
+// ===================================================================
+// LIVE AI ANALYSIS — Twelve Data (M15 candle)
+// Hitung: EMA50, RSI14, Volume Confirmation, lalu scoring otomatis
+// ===================================================================
+function calcRSI(closes, period=14){
+  let gains=0, losses=0;
+  for(let i=1;i<=period;i++){
+    const diff = closes[i]-closes[i-1];
+    if(diff>=0) gains+=diff; else losses+=Math.abs(diff);
+  }
+  let avgGain=gains/period, avgLoss=losses/period;
+  for(let i=period+1;i<closes.length;i++){
+    const diff=closes[i]-closes[i-1];
+    avgGain=(avgGain*(period-1)+(diff>=0?diff:0))/period;
+    avgLoss=(avgLoss*(period-1)+(diff<0?Math.abs(diff):0))/period;
+  }
+  if(avgLoss===0) return 100;
+  const rs=avgGain/avgLoss;
+  return 100-(100/(1+rs));
+}
+
+function setAI(id, icon, text, color){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.className='ico'+(color==='red'?' off':'');
+  el.style.color=color==='gold'?'var(--gold)':color==='red'?'var(--red)':'var(--green)';
+  el.textContent=icon+' '+text;
+}
+
+async function fetchAIAnalysis(){
+  const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(TD_SYMBOL)}&interval=15min&outputsize=80&apikey=${TD_KEY}`;
+  try{
+    const res=await fetch(url);
+    const data=await res.json();
+    if(!data.values||!data.values.length) throw new Error('no data');
+    const vals=[...data.values].reverse();
+    const closes=vals.map(v=>parseFloat(v.close));
+    const vols=vals.map(v=>parseFloat(v.volume||0));
+    const price=closes[closes.length-1];
+
+    // EMA50
+    const ema50=calcEMA(closes,50);
+    const aboveEMA=price>ema50;
+    setAI('ai-ema', aboveEMA?'✔':'✕', aboveEMA?'YES':'NO', aboveEMA?'green':'red');
+
+    // Trend Direction dari H1 (pakai hasil trend MTF yang sudah di-fetch)
+    const trendEl=document.getElementById('trend-h1');
+    const trendText=trendEl?trendEl.textContent:'';
+    const isBull=trendText.includes('BULLISH');
+    const isBear=trendText.includes('BEARISH');
+    setAI('ai-trend', isBull?'✔':isBear?'✕':'⦿', isBull?'BULLISH':isBear?'BEARISH':'NEUTRAL', isBull?'green':isBear?'red':'gold');
+
+    // RSI14
+    const rsi=calcRSI(closes,14);
+    let rsiTxt, rsiColor, rsiIcon;
+    if(rsi<40){rsiTxt=`OVERSOLD (${rsi.toFixed(0)})`;rsiColor='green';rsiIcon='✔';}
+    else if(rsi>60){rsiTxt=`OVERBOUGHT (${rsi.toFixed(0)})`;rsiColor='red';rsiIcon='✕';}
+    else{rsiTxt=`NEUTRAL (${rsi.toFixed(0)})`;rsiColor='gold';rsiIcon='⦿';}
+    setAI('ai-rsi',rsiIcon,rsiTxt,rsiColor);
+
+    // Volume Confirmation — bandingkan vol candle terakhir vs avg 20 candle
+    const avgVol=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
+    const lastVol=vols[vols.length-1];
+    const volOk=lastVol>avgVol*1.1;
+    setAI('ai-vol',volOk?'✔':'✕',volOk?'YES':'LOW',volOk?'green':'red');
+
+    // Scoring — tiap item live bernilai 1 poin
+    let score=0, total=0;
+    // Trend
+    if(isBull||isBear){total++;if(isBull)score++;}
+    // EMA
+    total++;if(aboveEMA)score++;
+    // RSI
+    total++;if(rsi<40)score++;else if(rsi<=60)score+=0.5;
+    // Volume
+    total++;if(volOk)score++;
+    // Mock items yg selalu partial
+    total+=4; score+=2; // OB, FVG, Liq, News (mock neutral)
+
+    const pct=Math.round((score/total)*100);
+    const scoreEl=document.getElementById('ai-score-num');
+    const barEl=document.getElementById('ai-score-bar');
+    const labelEl=document.getElementById('ai-score-label');
+    const recWord=document.getElementById('ai-rec-word');
+    const recSub=document.getElementById('ai-rec-sub');
+    if(scoreEl) scoreEl.textContent=pct+'%';
+    if(barEl) barEl.style.width=pct+'%';
+
+    if(pct>=75){
+      if(labelEl){labelEl.textContent='High Probability Setup';labelEl.style.color='var(--green)';}
+      if(isBull){
+        if(recWord) recWord.textContent='BUY';
+        if(recSub) recSub.textContent='Conditions met for BUY entry. Confirm candle close.';
+        if(recWord) recWord.style.color='var(--green)';
+      } else {
+        if(recWord) recWord.textContent='SELL';
+        if(recSub) recSub.textContent='Conditions met for SELL entry. Confirm candle close.';
+        if(recWord) recWord.style.color='var(--red)';
+      }
+    } else if(pct>=50){
+      if(labelEl){labelEl.textContent='Medium Probability Setup';labelEl.style.color='var(--gold)';}
+      if(recWord){recWord.textContent='WAIT';recWord.style.color='var(--gold)';}
+      if(recSub) recSub.textContent='Wait for stronger confirmation before entering.';
+    } else {
+      if(labelEl){labelEl.textContent='Low Probability — Stay Out';labelEl.style.color='var(--red)';}
+      if(recWord){recWord.textContent='NO TRADE';recWord.style.color='var(--red)';}
+      if(recSub) recSub.textContent='Conditions not met. Avoid entry.';
+    }
+  } catch(e){
+    ['ai-trend','ai-ema','ai-vol','ai-rsi'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el){el.className='ico';el.style.color='var(--muted)';el.textContent='— ERROR';}
+    });
+  }
+}
+
+fetchAIAnalysis();
+setInterval(fetchAIAnalysis, 5*60*1000); // refresh tiap 5 menit
 </script>
 
 </body>
