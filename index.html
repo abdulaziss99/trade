@@ -250,11 +250,11 @@
 
     <div class="card">
       <h3>📈 Market Condition</h3>
-      <div class="row"><span class="label">Trend Strength</span><span class="val neutral">STRONG</span></div>
-      <div class="row"><span class="label">Volatility</span><span class="val neutral">HIGH</span></div>
-      <div class="row"><span class="label">Volume</span><span class="val bull">INCREASING</span></div>
-      <div class="row"><span class="label">Spread</span><span class="val">22 points</span></div>
-      <div class="row"><span class="label">ATR (14)</span><span class="val">310.4</span></div>
+      <div class="row"><span class="label">Trend Strength</span><span class="val" id="mc-strength">—</span></div>
+      <div class="row"><span class="label">Volatility</span><span class="val" id="mc-volatility">—</span></div>
+      <div class="row"><span class="label">Volume</span><span class="val" id="mc-volume">—</span></div>
+      <div class="row"><span class="label">Spread</span><span class="val" id="mc-spread">—</span></div>
+      <div class="row"><span class="label">ATR (14)</span><span class="val" id="mc-atr">—</span></div>
     </div>
 
     <div class="card">
@@ -864,6 +864,51 @@ async function fetchRCData(){
     rcPrice = parseFloat(vals[0].close);
     rcATR   = calcATR(vals, 14);
     updateRC();
+
+    // ===== MARKET CONDITION =====
+    const closes = vals.map(v=>parseFloat(v.close)).reverse();
+    const vols   = vals.map(v=>parseFloat(v.volume||0)).reverse();
+    const highs  = vals.map(v=>parseFloat(v.high));
+    const lows   = vals.map(v=>parseFloat(v.low));
+
+    // Trend Strength — slope EMA50 vs 5 candle lalu
+    const ema50now  = calcEMA(closes, Math.min(50,closes.length));
+    const ema50prev = calcEMA(closes.slice(0,-5), Math.min(50,closes.length-5));
+    const slope = Math.abs((ema50now - ema50prev) / ema50prev * 100);
+    let strength, strengthColor;
+    if(slope > 0.15){strength='STRONG';strengthColor='var(--gold)';}
+    else if(slope > 0.05){strength='MODERATE';strengthColor='var(--gold)';}
+    else{strength='WEAK';strengthColor='var(--muted)';}
+
+    // Volatility — ATR % of price
+    const atrPct = (rcATR / rcPrice) * 100;
+    let vol, volColor;
+    if(atrPct > 0.4){vol='HIGH';volColor='var(--gold)';}
+    else if(atrPct > 0.2){vol='MEDIUM';volColor='var(--gold)';}
+    else{vol='LOW';volColor='var(--muted)';}
+
+    // Volume trend
+    const avgVol20 = vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
+    const lastVol  = vols[vols.length-1];
+    const prev3Vol = vols.slice(-4,-1).reduce((a,b)=>a+b,0)/3;
+    let volTrend, volTrendColor;
+    if(lastVol > avgVol20*1.2){volTrend='INCREASING';volTrendColor='var(--green)';}
+    else if(lastVol < avgVol20*0.8){volTrend='DECREASING';volTrendColor='var(--red)';}
+    else{volTrend='NORMAL';volTrendColor='var(--muted)';}
+
+    // Spread — high-low candle terbaru dalam points (0.1 = 1 point untuk XAU)
+    const spread = ((highs[0] - lows[0]) * 10).toFixed(0);
+
+    const setMC = (id, text, color) => {
+      const el = document.getElementById(id);
+      if(el){ el.textContent=text; el.style.color=color; }
+    };
+    setMC('mc-strength',  strength,  strengthColor);
+    setMC('mc-volatility',vol,       volColor);
+    setMC('mc-volume',    volTrend,  volTrendColor);
+    setMC('mc-spread',    spread+' points', 'var(--text)');
+    setMC('mc-atr',       rcATR.toFixed(1), 'var(--text)');
+
     const now=new Date();
     const pad=n=>String(n).padStart(2,'0');
     const el=document.getElementById('rc-updated');
