@@ -283,8 +283,12 @@
         <div style="font-size:10px;color:var(--muted);font-family:var(--mono);">LIVE SESSION TRACKER</div>
       </div>
 
-      <!-- SESSION INDICATOR -->
+      <!-- LIVE CLOCK + SESSION INDICATOR -->
       <div id="sessionIndicator" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;">
+          <div id="liveClock" style="font-family:var(--mono);font-size:28px;font-weight:800;color:var(--gold);letter-spacing:2px;"></div>
+          <div id="liveDate" style="font-size:11px;color:var(--muted);font-family:var(--mono);"></div>
+        </div>
         <div id="sesBar" style="display:flex;border-radius:6px;overflow:hidden;height:22px;margin-bottom:8px;border:1px solid var(--line);"></div>
         <div id="clockRow" style="display:flex;gap:8px;margin-bottom:6px;"></div>
         <div id="utcRow" style="font-size:10px;color:var(--muted);text-align:right;font-family:var(--mono);"></div>
@@ -553,6 +557,16 @@ function updateSess(){
   });
   const pad=n=>String(n).padStart(2,'0');
   utcRow.textContent=`UTC ${pad(hUTC)}:${pad(mUTC)}:${pad(sUTC)}`;
+  const lc=document.getElementById('liveClock');
+  const ld=document.getElementById('liveDate');
+  if(lc){
+    lc.textContent=`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  if(ld){
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    ld.textContent=`${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
 }
 buildSessBar();updateSess();setInterval(updateSess,1000);
 </script>
