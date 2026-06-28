@@ -332,15 +332,52 @@
 
     <div class="card">
       <h3>🧮 Risk Calculator</h3>
-      <div class="row"><span class="label">Risk %</span><span class="val">1.00%</span></div>
-      <div class="row"><span class="label">Entry Price</span><span class="val">2,388.750</span></div>
-      <div class="row"><span class="label">Stop Loss</span><span class="val bear">2,383.000</span></div>
-      <div class="row"><span class="label">Take Profit 1</span><span class="val bull">2,400.250 (R:R 1:2)</span></div>
-      <div class="row"><span class="label">Take Profit 2</span><span class="val bull">2,411.750 (R:R 1:4)</span></div>
-      <div class="row"><span class="label">Lot Size</span><span class="val">0.02</span></div>
-      <div class="row"><span class="label">Risk Amount</span><span class="val bear">$50.00</span></div>
-      <div class="row"><span class="label">Potential Profit 1</span><span class="val bull">$100.00</span></div>
-      <div class="row"><span class="label">Potential Profit 2</span><span class="val bull">$200.00</span></div>
+
+      <!-- Inputs -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">BALANCE ($)</div>
+          <input id="rc-balance" type="number" value="5000" min="100" step="100"
+            style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+            border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">RISK %</div>
+          <input id="rc-risk" type="number" value="1" min="0.1" max="10" step="0.1"
+            style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+            border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">DIRECTION</div>
+          <select id="rc-dir"
+            style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+            border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);">
+            <option value="buy">BUY</option>
+            <option value="sell">SELL</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">ATR MULTIPLIER</div>
+          <input id="rc-atr-mult" type="number" value="1" min="0.5" max="3" step="0.1"
+            style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+            border-radius:6px;padding:5px 8px;font-size:13px;font-family:var(--mono);">
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="row"><span class="label">Entry Price</span><span class="val" id="rc-entry">—</span></div>
+      <div class="row"><span class="label">ATR (14)</span><span class="val" id="rc-atr">—</span></div>
+      <div class="row"><span class="label">Stop Loss</span><span class="val bear" id="rc-sl">—</span></div>
+      <div class="row"><span class="label">Take Profit 1 (1:2)</span><span class="val bull" id="rc-tp1">—</span></div>
+      <div class="row"><span class="label">Take Profit 2 (1:4)</span><span class="val bull" id="rc-tp2">—</span></div>
+      <div style="border-top:1px solid var(--line);margin:8px 0;"></div>
+      <div class="row"><span class="label">Risk Amount</span><span class="val bear" id="rc-risk-amt">—</span></div>
+      <div class="row"><span class="label">Lot Size</span><span class="val" id="rc-lot">—</span></div>
+      <div class="row"><span class="label">Profit TP1</span><span class="val bull" id="rc-profit1">—</span></div>
+      <div class="row"><span class="label">Profit TP2</span><span class="val bull" id="rc-profit2">—</span></div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px;font-family:var(--mono);" id="rc-updated"></div>
     </div>
   </div>
 </div>
@@ -765,7 +802,83 @@ async function fetchAIAnalysis(){
 }
 
 fetchAIAnalysis();
-setInterval(fetchAIAnalysis, 5*60*1000); // refresh tiap 5 menit
+setInterval(fetchAIAnalysis, 5*60*1000);
+
+// ===================================================================
+// LIVE RISK CALCULATOR — harga & ATR dari Twelve Data
+// ===================================================================
+let rcPrice = 0, rcATR = 0;
+
+function calcATR(vals, period=14){
+  const trs = [];
+  for(let i=1;i<vals.length;i++){
+    const h=parseFloat(vals[i-1].high), l=parseFloat(vals[i-1].low), pc=parseFloat(vals[i].close);
+    trs.push(Math.max(h-l, Math.abs(h-pc), Math.abs(l-pc)));
+  }
+  if(trs.length<period) return 0;
+  let atr=trs.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(let i=period;i<trs.length;i++) atr=(atr*(period-1)+trs[i])/period;
+  return atr;
+}
+
+function updateRC(){
+  if(!rcPrice||!rcATR) return;
+  const balance = parseFloat(document.getElementById('rc-balance').value)||5000;
+  const riskPct = parseFloat(document.getElementById('rc-risk').value)||1;
+  const dir     = document.getElementById('rc-dir').value;
+  const mult    = parseFloat(document.getElementById('rc-atr-mult').value)||1;
+
+  const riskAmt  = balance * riskPct / 100;
+  const slDist   = rcATR * mult;
+  const sl       = dir==='buy' ? rcPrice - slDist : rcPrice + slDist;
+  const tp1      = dir==='buy' ? rcPrice + slDist*2 : rcPrice - slDist*2;
+  const tp2      = dir==='buy' ? rcPrice + slDist*4 : rcPrice - slDist*4;
+
+  // Lot size: 1 lot XAUUSD = $100 per point (pip = 0.01, 1 lot = 100oz)
+  // Risk = lotSize * slDist * 100
+  const lotSize  = riskAmt / (slDist * 100);
+  const profit1  = lotSize * slDist * 2 * 100;
+  const profit2  = lotSize * slDist * 4 * 100;
+
+  const fmt = n => n.toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
+  const fmtD = n => '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  document.getElementById('rc-entry').textContent    = fmt(rcPrice);
+  document.getElementById('rc-atr').textContent      = fmt(rcATR);
+  document.getElementById('rc-sl').textContent       = fmt(sl);
+  document.getElementById('rc-tp1').textContent      = fmt(tp1);
+  document.getElementById('rc-tp2').textContent      = fmt(tp2);
+  document.getElementById('rc-risk-amt').textContent = fmtD(riskAmt);
+  document.getElementById('rc-lot').textContent      = lotSize.toFixed(2);
+  document.getElementById('rc-profit1').textContent  = fmtD(profit1);
+  document.getElementById('rc-profit2').textContent  = fmtD(profit2);
+}
+
+async function fetchRCData(){
+  const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(TD_SYMBOL)}&interval=15min&outputsize=30&apikey=${TD_KEY}`;
+  try{
+    const res=await fetch(url);
+    const data=await res.json();
+    if(!data.values||!data.values.length) throw new Error('no data');
+    const vals=[...data.values];
+    rcPrice = parseFloat(vals[0].close);
+    rcATR   = calcATR(vals, 14);
+    updateRC();
+    const now=new Date();
+    const pad=n=>String(n).padStart(2,'0');
+    const el=document.getElementById('rc-updated');
+    if(el) el.textContent=`Price updated ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  } catch(e){ console.error('RC fetch error',e); }
+}
+
+// input listeners
+['rc-balance','rc-risk','rc-dir','rc-atr-mult'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el) el.addEventListener('input', updateRC);
+});
+
+fetchRCData();
+setInterval(fetchRCData, 5*60*1000); // refresh tiap 5 menit
 </script>
 
 </body>
