@@ -229,10 +229,11 @@
     <div class="card">
       <h3>📊 Market Overview</h3>
       <div style="font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">TREND MULTI TIMEFRAME</div>
-      <div class="trend-row"><span class="tf">H4</span><span class="trend-tag bull">↑ BULLISH</span></div>
-      <div class="trend-row"><span class="tf">H1</span><span class="trend-tag bull">↑ BULLISH</span></div>
-      <div class="trend-row"><span class="tf">M15</span><span class="trend-tag bull">↑ BULLISH</span></div>
-      <div class="trend-row"><span class="tf">M5</span><span class="trend-tag bear">↓ RETRACE</span></div>
+      <div class="trend-row"><span class="tf">H4</span><span class="trend-tag" id="trend-h4">— LOADING</span></div>
+      <div class="trend-row"><span class="tf">H1</span><span class="trend-tag" id="trend-h1">— LOADING</span></div>
+      <div class="trend-row"><span class="tf">M15</span><span class="trend-tag" id="trend-m15">— LOADING</span></div>
+      <div class="trend-row"><span class="tf">M5</span><span class="trend-tag" id="trend-m5">— LOADING</span></div>
+      <div style="font-size:9px;color:var(--muted);margin-top:6px;font-family:var(--mono);" id="trendUpdated"></div>
     </div>
 
     <div class="card">
@@ -577,6 +578,75 @@ function updateSess(){
   }
 }
 buildSessBar();updateSess();setInterval(updateSess,1000);
+
+// ===================================================================
+// LIVE TREND MTF — Twelve Data API
+// Fetch candle XAUUSD, hitung EMA50, tentukan trend tiap TF
+// ===================================================================
+const TD_KEY = '5f52a74cd9f24b49a4729b5b8e599505';
+const TD_SYMBOL = 'XAU/USD';
+const TF_MAP = [
+  { id:'trend-h4',  interval:'4h',  label:'H4'  },
+  { id:'trend-h1',  interval:'1h',  label:'H1'  },
+  { id:'trend-m15', interval:'15min',label:'M15' },
+  { id:'trend-m5',  interval:'5min', label:'M5'  },
+];
+
+function calcEMA(closes, period){
+  const k = 2/(period+1);
+  let ema = closes.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  for(let i=period;i<closes.length;i++) ema = closes[i]*k + ema*(1-k);
+  return ema;
+}
+
+function getTrend(closes){
+  if(closes.length < 52) return {label:'NO DATA', cls:'neutral', arrow:'—'};
+  const ema50 = calcEMA(closes, 50);
+  const price = closes[closes.length-1];
+  const prev  = closes[closes.length-2];
+  const diff  = ((price - ema50) / ema50) * 100;
+  if(Math.abs(diff) < 0.05){
+    return {label:'RETRACE', cls:'neutral', arrow:'↔'};
+  } else if(price > ema50){
+    if(prev < price) return {label:'BULLISH', cls:'bull', arrow:'↑'};
+    return {label:'RETRACE', cls:'neutral', arrow:'↕'};
+  } else {
+    if(prev > price) return {label:'RETRACE', cls:'neutral', arrow:'↕'};
+    return {label:'BEARISH', cls:'bear', arrow:'↓'};
+  }
+}
+
+async function fetchTrend(tf){
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(TD_SYMBOL)}&interval=${tf.interval}&outputsize=60&apikey=${TD_KEY}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.values || !data.values.length) throw new Error('no data');
+    const closes = data.values.map(v=>parseFloat(v.close)).reverse();
+    const trend = getTrend(closes);
+    const el = document.getElementById(tf.id);
+    if(el){
+      el.className = 'trend-tag ' + trend.cls;
+      el.textContent = trend.arrow + ' ' + trend.label;
+    }
+  } catch(e){
+    const el = document.getElementById(tf.id);
+    if(el){ el.className='trend-tag neutral'; el.textContent='— ERROR'; }
+  }
+}
+
+async function fetchAllTrends(){
+  await Promise.all(TF_MAP.map(tf => fetchTrend(tf)));
+  const el = document.getElementById('trendUpdated');
+  if(el){
+    const now = new Date();
+    const pad = n=>String(n).padStart(2,'0');
+    el.textContent = `Updated ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+}
+
+fetchAllTrends();
+setInterval(fetchAllTrends, 5*60*1000); // refresh tiap 5 menit
 </script>
 
 </body>
