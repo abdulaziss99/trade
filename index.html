@@ -123,7 +123,7 @@
   .check-item .ico.off{color:var(--red);}
 
   /* chart panel */
-  .chart-card{flex:1; display:flex; flex-direction:column; min-height:520px;}
+  .chart-card{flex:1; display:flex; flex-direction:column; min-height:680px;}
   .chart-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; flex-wrap:wrap; gap:8px;}
   .chart-title{font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;}
   .chart-sub{font-size:11.5px; color:var(--muted); margin-top:2px;}
@@ -134,11 +134,7 @@
     font-size:9.5px; font-family:var(--mono); color:#2962ff; background:rgba(41,98,255,.12);
     border:1px solid rgba(41,98,255,.4); padding:2px 7px; border-radius:5px; font-weight:700;
   }
-  #tv_chart_container{width:100%; height:420px; border-radius:8px; overflow:hidden; border:1px solid var(--line);}
-  #volCanvas{width:100%; height:60px; display:block;}
-  #rsiCanvas{width:100%; height:60px; display:block;}
-  .sub-chart-label{font-size:10px; color:var(--muted); font-family:var(--mono); margin:6px 0 2px; display:flex; justify-content:space-between;}
-  .mock-tag{color:#7c8597; font-style:italic; font-weight:400;}
+  #tv_chart_container{width:100%; min-height:600px; border-radius:8px; overflow:hidden; border:1px solid var(--line);}
 
   .legend-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;}
   .legend-grid .li{display:flex; align-items:center; gap:6px;}
@@ -256,19 +252,13 @@
         </div>
       </div>
 
-      <!-- TradingView Advanced Chart Widget: chart-nya live & real, ambil langsung dari TradingView -->
-      <div id="tv_chart_container">
+      <!-- TradingView Advanced Chart Widget: chart-nya live & real, ambil langsung dari TradingView.
+           Volume & RSI sudah bawaan TradingView (studies di bawah), jadi nggak perlu panel manual lagi. -->
+      <div id="tv_chart_container" style="flex:1;">
         <div class="tradingview-widget-container" style="height:100%;width:100%">
           <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
         </div>
       </div>
-
-      <!-- Panel di bawah ini TETAP modul AGS sendiri (Volume & RSI versi AGS), bukan dari TradingView.
-           Saat ini masih data MOCK — nanti diisi data real via MT5 bridge / broker API (lihat catatan di JS bawah). -->
-      <div class="sub-chart-label">VOLUME (modul AGS) <span class="mock-tag">data mock — menunggu feed MT5/API</span></div>
-      <canvas id="volCanvas"></canvas>
-      <div class="sub-chart-label">RSI 14 (modul AGS) <span id="rsiVal" style="color:var(--purple)">48.65</span></div>
-      <canvas id="rsiCanvas"></canvas>
     </div>
   </div>
 
@@ -426,95 +416,27 @@ setInterval(()=>{
 })();
 
 // ===================================================================
-// MODUL AGS (Volume & RSI panel kustom) — INI YANG NANTI DISAMBUNG KE DATA REAL
+// CATATAN UNTUK NANTI — sambungin panel AGS (kiri & kanan) ke data real
 // ===================================================================
-// Kenapa terpisah dari chart TradingView?
-// TradingView widget embed (gratis) jalan di iframe-nya sendiri dan TIDAK
-// membagikan data OHLC/volume mentah ke luar — jadi panel AI Score, Order
-// Block, FVG, Liquidity, dst TIDAK BISA otomatis baca dari chart di atas.
+// Panel Volume & RSI sekarang sudah dari TradingView (built-in studies di
+// atas), jadi nggak perlu digambar manual lagi.
 //
-// Supaya panel-panel itu hidup beneran (bukan angka mock), nanti kamu perlu
-// satu sumber data harga sendiri, salah satu dari:
-//   1) EA MT5 yang nulis candle ke file / kirim via WebRequest() ke server kamu
-//   2) Broker/API data feed (misal lewat REST/WebSocket) untuk XAUUSD
-// Lalu server kamu (Python/Node) broadcast data itu via WebSocket ke browser.
+// Tapi panel AI Score, Trend MTF, Order Block, FVG, Liquidity, Risk
+// Calculator (kiri & kanan dashboard) itu MASIH DATA MOCK — karena
+// TradingView widget gratis tidak membagikan data mentahnya keluar iframe.
 //
-// TITIK SAMBUNGNYA ADA DI SINI — ganti genCandles() di bawah dengan data
-// asli yang masuk lewat WebSocket, contoh kerangkanya:
+// Supaya panel-panel itu hidup beneran, nanti kamu perlu sumber data harga
+// sendiri (EA MT5 → server Python → WebSocket), lalu di sini tinggal buka
+// koneksi dan update elemen-elemen itu, contoh kerangkanya:
 //
 //   const ws = new WebSocket("ws://localhost:8765");
 //   ws.onmessage = (event) => {
-//     const newCandle = JSON.parse(event.data);
-//     candles.push(newCandle);
-//     candles.shift(); // buang candle paling lama biar array tetap fix-length
-//     renderAll();      // gambar ulang volume & RSI dengan data baru
+//     const data = JSON.parse(event.data);
+//     // contoh: update teks Buy Score
+//     document.querySelector('.ai-score-big .num').textContent = data.buyScore + '%';
+//     // dst untuk Trend MTF, Risk Calculator, AI Analysis checklist, dll
 //   };
-//
-// Sampai bridge itu jadi, di bawah ini masih pakai data SIMULASI supaya
-// tampilan & layout panelnya tetap bisa dilihat jalan.
 // ===================================================================
-
-function genCandles(n){
-  const arr=[]; let price = 2370;
-  for(let i=0;i<n;i++){
-    const open = price;
-    const drift = Math.sin(i/9)*1.4 + (Math.random()-0.45)*2.2;
-    let close = open + drift;
-    arr.push({open, close, vol: 20+Math.random()*80});
-    price = close;
-  }
-  return arr;
-}
-
-const candles = genCandles(60); // <-- ganti sumber ini dengan data WebSocket nantinya
-
-function setupCanvas(canvas){
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width*dpr;
-  canvas.height = rect.height*dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr,dpr);
-  return {ctx, w:rect.width, h:rect.height};
-}
-
-function drawVol(){
-  const canvas = document.getElementById('volCanvas');
-  const {ctx,w,h} = setupCanvas(canvas);
-  ctx.clearRect(0,0,w,h);
-  const maxV = Math.max(...candles.map(c=>c.vol));
-  const cw = (w-50)/candles.length;
-  candles.forEach((c,i)=>{
-    const x = i*cw + cw*0.2;
-    const up = c.close>=c.open;
-    const barH = (c.vol/maxV)*(h-4);
-    ctx.fillStyle = up ? 'rgba(34,197,94,.6)' : 'rgba(239,68,68,.6)';
-    ctx.fillRect(x, h-barH, cw*0.6, barH);
-  });
-}
-
-function drawRSI(){
-  const canvas = document.getElementById('rsiCanvas');
-  const {ctx,w,h} = setupCanvas(canvas);
-  ctx.clearRect(0,0,w,h);
-  const rsi = candles.map((_,i)=> 50 + Math.sin(i/6)*18 + Math.cos(i/3)*6);
-  const cw = (w-50)/candles.length;
-  [30,50,70].forEach(level=>{
-    const y = h - (level/100)*h;
-    ctx.strokeStyle='#1d2531'; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w-50,y); ctx.stroke();
-  });
-  ctx.beginPath(); ctx.strokeStyle='#a855f7'; ctx.lineWidth=1.6;
-  rsi.forEach((v,i)=>{
-    const x=i*cw+cw/2; const y = h-(v/100)*h;
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-  document.getElementById('rsiVal').textContent = rsi[rsi.length-1].toFixed(2);
-}
-
-function renderAll(){ drawVol(); drawRSI(); }
-window.addEventListener('resize', renderAll);
-renderAll();
 </script>
 
 </body>
