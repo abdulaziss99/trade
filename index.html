@@ -752,19 +752,37 @@ async function fetchAIAnalysis(){
     setAI('ai-vol',volOk?'✔':'✕',volOk?'YES':'LOW',volOk?'green':'red');
 
     // Scoring — tiap item live bernilai 1 poin
-    let score=0, total=0;
-    // Trend
-    if(isBull||isBear){total++;if(isBull)score++;}
-    // EMA
-    total++;if(aboveEMA)score++;
-    // RSI
-    total++;if(rsi<40)score++;else if(rsi<=60)score+=0.5;
-    // Volume
-    total++;if(volOk)score++;
-    // Mock items yg selalu partial
-    total+=4; score+=2; // OB, FVG, Liq, News (mock neutral)
+    // Scoring — dipisah jadi 2 arah: BUY score & SELL score
+    let bullScore=0, bearScore=0, totalEach=0;
 
-    const pct=Math.round((score/total)*100);
+    // Trend
+    totalEach++;
+    if(isBull) bullScore++;
+    if(isBear) bearScore++;
+
+    // EMA50
+    totalEach++;
+    if(aboveEMA) bullScore++; else bearScore++;
+
+    // RSI — oversold mendukung BUY, overbought mendukung SELL
+    totalEach++;
+    if(rsi<40) bullScore++;
+    else if(rsi>60) bearScore++;
+    else { bullScore+=0.5; bearScore+=0.5; }
+
+    // Volume confirmation — dukung arah trend yang lagi jalan
+    totalEach++;
+    if(volOk){ if(isBull) bullScore++; else if(isBear) bearScore++; else { bullScore+=0.5; bearScore+=0.5; } }
+    else { bullScore+=0.25; bearScore+=0.25; }
+
+    // Mock items (OB, FVG, Liquidity, News) — netral, separuh utk kedua arah
+    totalEach+=4; bullScore+=2; bearScore+=2;
+
+    const bullPct = Math.round((bullScore/totalEach)*100);
+    const bearPct = Math.round((bearScore/totalEach)*100);
+    const pct = Math.max(bullPct, bearPct);
+    const finalDir = bullPct >= bearPct ? 'buy' : 'sell';
+
     const scoreEl=document.getElementById('ai-score-num');
     const barEl=document.getElementById('ai-score-bar');
     const labelEl=document.getElementById('ai-score-label');
@@ -775,14 +793,12 @@ async function fetchAIAnalysis(){
 
     if(pct>=75){
       if(labelEl){labelEl.textContent='High Probability Setup';labelEl.style.color='var(--green)';}
-      if(isBull){
-        if(recWord) recWord.textContent='BUY';
+      if(finalDir==='buy'){
+        if(recWord){recWord.textContent='BUY';recWord.style.color='var(--green)';}
         if(recSub) recSub.textContent='Conditions met for BUY entry. Confirm candle close.';
-        if(recWord) recWord.style.color='var(--green)';
       } else {
-        if(recWord) recWord.textContent='SELL';
+        if(recWord){recWord.textContent='SELL';recWord.style.color='var(--red)';}
         if(recSub) recSub.textContent='Conditions met for SELL entry. Confirm candle close.';
-        if(recWord) recWord.style.color='var(--red)';
       }
     } else if(pct>=50){
       if(labelEl){labelEl.textContent='Medium Probability Setup';labelEl.style.color='var(--gold)';}
