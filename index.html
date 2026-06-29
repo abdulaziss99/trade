@@ -936,11 +936,13 @@ async function fetchRCData(){
 }
 
 // input listeners
-['rc-balance','rc-risk','rc-dir','rc-atr-mult'].forEach(id=>{
+['rc-balance','rc-risk','rc-atr-mult'].forEach(id=>{
   const el=document.getElementById(id);
   if(el) el.addEventListener('input', updateRC);
 });
 
+const rcDirEl = document.getElementById('rc-dir');
+if(rcDirEl) rcDirEl.addEventListener('change', updateRC);
 fetchRCData();
 setInterval(fetchRCData, 5*60*1000); // refresh tiap 5 menit
 </script>
