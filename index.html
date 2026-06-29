@@ -830,32 +830,51 @@ function updateRC(){
 
   const riskAmt  = balance * riskPct / 100;
   const slDist   = rcATR * mult;
-  const sl       = dir==='buy' ? rcPrice - slDist : rcPrice + slDist;
-  const tp1      = dir==='buy' ? rcPrice + slDist*2 : rcPrice - slDist*2;
-  const tp2      = dir==='buy' ? rcPrice + slDist*4 : rcPrice - slDist*4;
 
-  // Lot size: 1 lot XAUUSD = $100 per point (pip = 0.01, 1 lot = 100oz)
-  // Risk = lotSize * slDist * 100
+  // BUY: SL di bawah entry, TP di atas
+  // SELL: SL di atas entry, TP di bawah
+  const isBuy = dir === 'buy';
+  const sl  = isBuy ? rcPrice - slDist : rcPrice + slDist;
+  const tp1 = isBuy ? rcPrice + slDist*2 : rcPrice - slDist*2;
+  const tp2 = isBuy ? rcPrice + slDist*4 : rcPrice - slDist*4;
+
+  // Lot size XAUUSD:
+  // 1 lot = 100 oz, nilai per pip ($0.01) = $1 per lot
+  // slDist dalam dollar (misal 4.5 = $4.5 per oz)
+  // Risk ($) = lotSize * slDist * 100
+  // lotSize = riskAmt / (slDist * 100)
+  // Tapi kalau balance kecil, tampilkan dalam mini lot (0.01)
   const lotSize  = riskAmt / (slDist * 100);
-  const profit1  = lotSize * slDist * 2 * 100;
-  const profit2  = lotSize * slDist * 4 * 100;
+  const profit1  = riskAmt * 2;  // R:R 1:2
+  const profit2  = riskAmt * 4;  // R:R 1:4
 
-  const fmt = n => n.toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
+  const fmt  = n => n.toLocaleString('en-US',{minimumFractionDigits:3,maximumFractionDigits:3});
   const fmtD = n => '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 
   document.getElementById('rc-entry').textContent    = fmt(rcPrice);
   document.getElementById('rc-atr').textContent      = fmt(rcATR);
-  document.getElementById('rc-sl').textContent       = fmt(sl);
-  document.getElementById('rc-tp1').textContent      = fmt(tp1);
-  document.getElementById('rc-tp2').textContent      = fmt(tp2);
+
+  // SL — selalu merah
+  const slEl = document.getElementById('rc-sl');
+  slEl.textContent = fmt(sl);
+  slEl.style.color = 'var(--red)';
+
+  // TP — selalu hijau
+  document.getElementById('rc-tp1').textContent = fmt(tp1);
+  document.getElementById('rc-tp2').textContent = fmt(tp2);
+
+  // Direction label di entry price
+  const entryEl = document.getElementById('rc-entry');
+  entryEl.style.color = isBuy ? 'var(--green)' : 'var(--red)';
+
   document.getElementById('rc-risk-amt').textContent = fmtD(riskAmt);
-  document.getElementById('rc-lot').textContent      = lotSize.toFixed(2);
+  document.getElementById('rc-lot').textContent      = lotSize < 0.01 ? '< 0.01' : lotSize.toFixed(2);
   document.getElementById('rc-profit1').textContent  = fmtD(profit1);
   document.getElementById('rc-profit2').textContent  = fmtD(profit2);
 }
 
 async function fetchRCData(){
-  const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(TD_SYMBOL)}&interval=15min&outputsize=30&apikey=${TD_KEY}`;
+  const url=`https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(TD_SYMBOL)}&interval=15min&outputsize=60&apikey=${TD_KEY}`;
   try{
     const res=await fetch(url);
     const data=await res.json();
